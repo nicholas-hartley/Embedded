@@ -207,7 +207,7 @@ void updateUI(int input, long Time){
 void resetSequence(){
   PORTC = B11111111;//Clear Seven Seg while processing
   PORTC = B01111111;//Turn Decimal Point on
-  for(int i = 0; i < 10; i++){
+  for(int i = 0; i < 10; i++){//Blink the LED on a .5S interval 
     delay(500);
     PORTC ^= B10000000;
   }
