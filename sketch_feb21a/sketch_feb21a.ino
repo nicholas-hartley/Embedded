@@ -71,5 +71,11 @@ void updateUI(String input){
 
 //Function to perform the ADC conversions
 void ADCConversions(){
-  
+  unsigned long Time;
+  int Readings[30];//Array to store the values being read
+  for(int i = 0; i < 30; i++){
+    Time = micros();
+    Readings[i] = analogRead(inputVoltage);
+    
+  }
 }
