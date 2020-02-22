@@ -7,12 +7,12 @@
   if the user doesn't enter input within that time frame.
 */
 
-#define A0 inputVoltage
+#define inputVoltage A0
 
 #include <avr/wdt.h>//Watchdog timer library
 
 void setup() {
-  Serial.begin(115200);//Open a serial session and set the Baud rate to 115200
+  Serial.begin(9600);//Open a serial session and set the Baud rate to 9600
   WatchdogSetup();//Calls function to set up the watchdog timer
   wdt_reset();
 }
@@ -25,7 +25,7 @@ void WatchdogSetup(){
   //Enter Watchdog Configuration mode
   WDTCSR |= B00011000;//Enable configuration without affecting other bits
   // Set Watchdog settings
-  WDTCSR = B01101000;//Enable the interupt and set time to 4s
+  WDTCSR = B01100000;//Enable the interupt and set time to 4s
   
   sei();//Re-enable interrupts
 }
@@ -45,10 +45,14 @@ void loop(){
   Serial.println("Enter a 'c' to start a set of voltage conversions: ");
   wdt_reset();
   while(!Serial.available()){
-    //Wait for user input
+    if(WDTCSR == B00000000){//If the interrupt is not enabled signaling a timeout
+      BoardReset();//Function to print the reset message
+      asm volatile ("  jmp 0");//Return code to instruction 0 for a reset
+    }
   }
   wdt_reset();//Resets the watchdog timer if user input is entered
-  
+
+  delay(5);
   String userInput = Serial.readString();//Stores user input
   userInput.trim();//Trims Whitespace
   
@@ -71,11 +75,29 @@ void updateUI(String input){
 
 //Function to perform the ADC conversions
 void ADCConversions(){
-  unsigned long Time;
-  int Readings[30];//Array to store the values being read
+  char output[50];//String to print
+  unsigned long Time;//Variable to measure the time for each reading
+  int Readings[30];//Array to store the times in a smaller data structure
+  int Digital; //Variable for the digital voltage value
   for(int i = 0; i < 30; i++){
-    Time = micros();
-    Readings[i] = analogRead(inputVoltage);
-    
+    Time = micros();//Time ADC conversion starts
+    Digital = analogRead(inputVoltage);
+    Time = micros() - Time;//Difference betweene when the conversion starts and ends
+    Readings[i] = Time;
+    sprintf(output, "#%d:   digital value = %03x     Time = %d usecs", i+1, Digital, Readings[i]);
+    Serial.println(output);
   }
+  wdt_reset();//Reset to be safe
+  float sum = 0;
+  for(int i = 0; i < 30; i++){
+    sum += Readings[i];
+  }
+  Serial.print("\naverage conversion time = ");
+  Serial.println(sum/30);
+}
+
+//Reset Function
+void BoardReset(){
+  Serial.println("\nBoard Reset\n");
+  delay(20);//Delay to let the message print
 }
