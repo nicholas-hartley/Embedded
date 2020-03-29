@@ -12,8 +12,14 @@
 #include <avr/wdt.h>//Watchdog timer library
 
 void setup() {
-  Serial.begin(9600);//Open a serial session and set the Baud rate to 9600
+  Serial.begin(9600);//Open a serial session and set the Baud rate to 115200
+  wdt_enable(WDTO_4S);
   WatchdogSetup();//Calls function to set up the watchdog timer
+  wdt_reset();
+  Serial.flush();
+  Serial.println("\nBoard Reset");
+  //Welcome message and WDT start for timeout
+  Serial.println("\nEnter a 'c' to start a set of voltage conversions: ");
   wdt_reset();
 }
 
@@ -25,7 +31,7 @@ void WatchdogSetup(){
   //Enter Watchdog Configuration mode
   WDTCSR |= B00011000;//Enable configuration without affecting other bits
   // Set Watchdog settings
-  WDTCSR = B01100000;//Enable the interupt and set time to 4s
+  WDTCSR &= B01101000;//Enable the interupt and set time to 4s
   
   sei();//Re-enable interrupts
 }
@@ -36,41 +42,35 @@ ISR(WDT_vect){
   //Enter Watchdog Configuration mode
   WDTCSR |= B00011000;//Enable configuration without affecting other bits
   // Set Watchdog settings
-  WDTCSR = B00000000;//Clear the WDT
+  WDTCSR &= B01111111;//Clear the interrupt flag
 }
 
 //Main loop executed for the user
 void loop(){
-  //Welcome message and WDT start for timeout
-  Serial.println("Enter a 'c' to start a set of voltage conversions: ");
-  wdt_reset();
-  while(!Serial.available()){
-    if(WDTCSR == B00000000){//If the interrupt is not enabled signaling a timeout
-      BoardReset();//Function to print the reset message
-      asm volatile ("  jmp 0");//Return code to instruction 0 for a reset
-    }
-  }
-  wdt_reset();//Resets the watchdog timer if user input is entered
+  while(!Serial.available()){}//Wait for serial input
 
-  delay(5);
-  String userInput = Serial.readString();//Stores user input
-  userInput.trim();//Trims Whitespace
-  
-  updateUI(userInput);
+  //Read user input assuming '\n' is terminating character
+  updateUI(Serial.readStringUntil('\n'));
   //Resets the watchdog timer after the UI is updated for next input iteration
   wdt_reset();
 }
 
 //Function to update the user through the UI
 void updateUI(String input){
-    wdt_reset();
-    if(input.equals("c")){//If the user entered a 'c' start ADC conversions
-      Serial.println("Starting a set of conversions:");
-      ADCConversions();
-    }
-    else{
-      Serial.println("Invalid input.");
-    }
+  wdt_reset();
+  if(input.equals("c")){//If the user entered a 'c' start ADC conversions
+    Serial.println("\nStarting a set of conversions:");
+    ADCConversions();//Start ADC conversions
+  }
+  else{
+    Serial.println("Invalid input.");
+  }
+  //Welcome message and WDT start for timeout
+  if(Serial.available()){
+  Serial.readString();//Clear user input entered during conversions
+  }
+  Serial.println("\nEnter a 'c' to start a set of voltage conversions: ");
+  wdt_reset();
 }
 
 //Function to perform the ADC conversions
@@ -81,23 +81,23 @@ void ADCConversions(){
   int Digital; //Variable for the digital voltage value
   for(int i = 0; i < 30; i++){
     Time = micros();//Time ADC conversion starts
-    Digital = analogRead(inputVoltage);
+    Digital = analogRead(inputVoltage);//Read the input voltage
     Time = micros() - Time;//Difference betweene when the conversion starts and ends
-    Readings[i] = Time;
-    sprintf(output, "#%d:   digital value = %03x     Time = %d usecs", i+1, Digital, Readings[i]);
+    Readings[i] = Time;//Populate the array for current conversion time
+    //Format and print output to user
+    sprintf(output, "#%02d:   digital value = %03x     Time = %d usecs",
+            i+1, Digital, Readings[i]);
     Serial.println(output);
+    delay(500);
+    wdt_reset();
   }
   wdt_reset();//Reset to be safe
   float sum = 0;
   for(int i = 0; i < 30; i++){
     sum += Readings[i];
   }
+  //Print out average time. Sidenote sprintf doesn't have native float support
   Serial.print("\naverage conversion time = ");
-  Serial.println(sum/30);
-}
-
-//Reset Function
-void BoardReset(){
-  Serial.println("\nBoard Reset\n");
-  delay(20);//Delay to let the message print
+  Serial.print(sum/30);
+  Serial.println(" usecs");
 }
