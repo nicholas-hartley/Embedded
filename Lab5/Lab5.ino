@@ -19,9 +19,9 @@ void setup() {
   WatchdogSetup();//Calls function to set up the watchdog timer
   wdt_reset();
   Serial.flush();
-  Serial.println("\nBoard Reset");
+  Serial.println("\n Board Reset");
   //Welcome message and WDT start for timeout
-  Serial.println("\nEnter a 'c' to start a set of voltage conversions: ");
+  Serial.println("\n Select a type of conversion to perform: \n enter ‘a’ for AnalogRead, ‘b’ for polling, or ‘c’ for interrupts\n");
   wdt_reset();
 }
 
@@ -96,7 +96,7 @@ void updateUI(String input){
   if(Serial.available()){
   Serial.readString();//Clear user input entered during conversions
   }
-  Serial.println("\nEnter a 'c' to start a set of voltage conversions: ");
+  Serial.println("\n Select a type of conversion to perform: \n enter ‘a’ for AnalogRead, ‘b’ for polling, or ‘c’ for interrupts\n");
   wdt_reset();
 }
 
@@ -112,10 +112,10 @@ int ADCConversions(){
     Time = micros() - Time;//Difference betweene when the conversion starts and ends
     Readings[i] = Time;//Populate the array for current conversion time
     //Format and print output to user
-    sprintf(output, "#%02d:   digital value = %03x     Time = %d usecs",
+    sprintf(output, " #%02d:   digital value = %03x     Time = %d usecs",
             i+1, Digital, Readings[i]);
     Serial.println(output);
-    delay(200);
+    delay(500);
     wdt_reset();
   }
   wdt_reset();//Reset to be safe
@@ -153,7 +153,7 @@ int PollingADC(){
     sprintf(output, " #%02d:   digital value = %03x     Time = %03d usecs", i+1, Digital, Readings[i]);
     Serial.println(output);
     ADCSRA &= B11101111;
-    delay(200);
+    delay(500);
     wdt_reset();
   }
   float sum = 0;
@@ -191,7 +191,7 @@ int InterruptADC(){
     Readings[i] = Time;
     sprintf(output, " #%02d:   digital value = %03x     Time = %03d usecs", i+1, Reading, Readings[i]);
     Serial.println(output);
-    delay(200);
+    delay(500);
     wdt_reset();
   }
   float sum = 0;
@@ -199,6 +199,6 @@ int InterruptADC(){
     sum += Readings[i];
   }
   wdt_reset();
-  Serial.print("\naverage conversion time = ");
+  Serial.print("\n average interrupt conversion time = ");
   return sum;
 }
