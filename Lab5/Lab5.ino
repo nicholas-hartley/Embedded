@@ -53,13 +53,9 @@ ISR(WDT_vect){
 }
 
 ISR(ADC_vect){
-  cli();//Disable interrupts
-  
   Reading = ADCL | (ADCH << 8);//Get the ADC reading
 
   ADCSRA &= B10101111;//Clear the interrupt flag and start conversion bit
-  
-  sei();//Enable interrupts again
 }
 
 //Main loop executed for the user
@@ -96,7 +92,7 @@ void updateUI(String input){
   else{
     Serial.println(" Invalid input.");
     wdt_reset();
-    return;
+    return;//Don't print average conversion time if none are done
   }
 
   //Print out the average time for any conversion
@@ -119,7 +115,7 @@ int ADCConversions(){
     sprintf(output, " #%02d:   digital value = %03X     Time = %d usecs",
             i+1, Digital, Readings[i]);
     Serial.println(output);
-    delay(500);
+    delay(500);//Delay to allow user to change input
     wdt_reset();
   }
   wdt_reset();//Reset to be safe
@@ -152,8 +148,8 @@ int PollingADC(){
     Readings[i] = Time;
     sprintf(output, " #%02d:   digital value = %03X     Time = %03d usecs", i+1, Digital, Readings[i]);
     Serial.println(output);
-    ADCSRA &= B11101111;
-    delay(500);
+    ADCSRA &= B11101111;//Clearing the interrupt flag
+    delay(500);//Delay to allow user to change input
     wdt_reset();
   }
   float sum = 0;
@@ -185,7 +181,7 @@ int InterruptADC(){
     Readings[i] = Time;
     sprintf(output, " #%02d:   digital value = %03X     Time = %03d usecs", i+1, Reading, Readings[i]);
     Serial.println(output);
-    delay(500);
+    delay(500);//Delay to allow user to change input
     wdt_reset();
   }
   float sum = 0;
