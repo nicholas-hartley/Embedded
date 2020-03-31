@@ -1,20 +1,25 @@
 //Nicholas Hartley, CWID: 11808942, Labs 5&6: Intro to Polling, Port Manipulation, and Interrupt-Driven Systems
 
 /*
-  The purpose of this lab was to write an ADC conversion program.
-  The program prompts the user to enter 'c' to start a set of conversions. 
-  The program has a watchdog timeout of 4 seconds that will perform a board reset
-  if the user doesn't enter input within that time frame.
+  The purpose of this lab was to compare the speed of three different methods for getting values from the ADC.
+  The program prompts the user to enter 'a', 'b', or 'c' to pick which kind of conversion is being done.
+  The program has a watchdog timeout of 4 seconds that will perform a board resetif the user doesn't enter 
+  input within that time frame.
 */
 
 #define inputVoltage A0
 
 #include <avr/wdt.h>//Watchdog timer library
 
-volatile int Reading;
+volatile int Reading;//ADC reading for the ADC interrupt
 
 void setup() {
   Serial.begin(9600);//Open a serial session and set the Baud rate to 115200
+  cli();
+  ADCSRA = B10001111;//Turn on the ADC/Interrupt and set the prescale to the only guaranteed speed
+  ADCSRB = B00000000;//Pretty sure this is the default, but just in case analog read decides to get funky
+  ADMUX = B01000000;//Set the reference voltage
+  sei();
   wdt_enable(WDTO_4S);
   WatchdogSetup();//Calls function to set up the watchdog timer
   wdt_reset();
@@ -63,7 +68,12 @@ void loop(){
 
   //Read user input assuming '\n' is terminating character
   updateUI(Serial.readStringUntil('\n'));
-  //Resets the watchdog timer after the UI is updated for next input iteration
+  
+  //Welcome message and WDT start for timeout
+  if(Serial.available()){
+  Serial.readString();//Clear user input entered during conversions
+  }
+  Serial.println("\n Select a type of conversion to perform: \n enter ‘a’ for AnalogRead, ‘b’ for polling, or ‘c’ for interrupts\n");
   wdt_reset();
 }
 
@@ -84,20 +94,14 @@ void updateUI(String input){
     sum = InterruptADC();//Start ADC conversions using Interrupts
   }
   else{
-    Serial.println("Invalid input.");
+    Serial.println(" Invalid input.");
+    wdt_reset();
     return;
   }
 
   //Print out the average time for any conversion
   Serial.print(sum/30);
   Serial.println(" usecs");
-  
-  //Welcome message and WDT start for timeout
-  if(Serial.available()){
-  Serial.readString();//Clear user input entered during conversions
-  }
-  Serial.println("\n Select a type of conversion to perform: \n enter ‘a’ for AnalogRead, ‘b’ for polling, or ‘c’ for interrupts\n");
-  wdt_reset();
 }
 
 //Function to perform the ADC conversions
@@ -112,7 +116,7 @@ int ADCConversions(){
     Time = micros() - Time;//Difference betweene when the conversion starts and ends
     Readings[i] = Time;//Populate the array for current conversion time
     //Format and print output to user
-    sprintf(output, " #%02d:   digital value = %03x     Time = %d usecs",
+    sprintf(output, " #%02d:   digital value = %03X     Time = %d usecs",
             i+1, Digital, Readings[i]);
     Serial.println(output);
     delay(500);
@@ -134,11 +138,7 @@ int PollingADC(){
   unsigned long Time;//Variable to measure the time for each reading
   int Readings[30];//Array to store the times in a smaller data structure
   int Digital; //Variable for the digital voltage value
-
-  ADCSRA = B10000111;//Turn on the ADC and set the prescale to the only guaranteed speed
-  ADCSRB = B00000000;//Pretty sure this is the default, but just in case analog read decides to get funky
-  ADMUX = B01000000;//Set the reference voltage 
-
+  
   for(int i = 0; i < 30; i++){
     ADCSRA |= B01000000;
     Time = micros();//Time ADC conversion starts
@@ -150,7 +150,7 @@ int PollingADC(){
       }
     }
     Readings[i] = Time;
-    sprintf(output, " #%02d:   digital value = %03x     Time = %03d usecs", i+1, Digital, Readings[i]);
+    sprintf(output, " #%02d:   digital value = %03X     Time = %03d usecs", i+1, Digital, Readings[i]);
     Serial.println(output);
     ADCSRA &= B11101111;
     delay(500);
@@ -161,7 +161,7 @@ int PollingADC(){
     sum += Readings[i];
   }
   wdt_reset();
-  Serial.print("\n average polling conversion time = ");
+  Serial.print("\n average Polling conversion time = ");
   return sum;
 }
 
@@ -170,12 +170,6 @@ int InterruptADC(){
   char output[50];//String to print
   unsigned long Time;//Variable to measure the time for each reading
   int Readings[30];//Array to store the times in a smaller data structure
-
-  cli();
-  ADCSRA = B10001111;//Turn on the ADC/Interrupt and set the prescale to the only guaranteed speed
-  ADCSRB = B00000000;//Pretty sure this is the default, but just in case analog read decides to get funky
-  ADMUX = B01000000;//Set the reference voltage
-  sei();
 
   for(int i = 0; i < 30; i++){
     Time = micros();//Time ADC conversion starts
@@ -189,7 +183,7 @@ int InterruptADC(){
     }
     Time = micros() - Time;
     Readings[i] = Time;
-    sprintf(output, " #%02d:   digital value = %03x     Time = %03d usecs", i+1, Reading, Readings[i]);
+    sprintf(output, " #%02d:   digital value = %03X     Time = %03d usecs", i+1, Reading, Readings[i]);
     Serial.println(output);
     delay(500);
     wdt_reset();
@@ -199,6 +193,6 @@ int InterruptADC(){
     sum += Readings[i];
   }
   wdt_reset();
-  Serial.print("\n average interrupt conversion time = ");
+  Serial.print("\n average Interrupt conversion time = ");
   return sum;
 }
